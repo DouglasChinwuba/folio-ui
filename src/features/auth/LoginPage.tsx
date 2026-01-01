@@ -4,7 +4,7 @@ function LoginPage() {
   return (
     <>
       <Header />
-      <h1>CryptoStock Watch</h1>
+      <h1>Folio</h1>
       <div className="card">
         
       </div>

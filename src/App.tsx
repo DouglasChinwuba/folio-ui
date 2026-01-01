@@ -1,27 +1,26 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 import './App.css'
 import LoginPage from './features/auth/LoginPage'
 import Dashboard from './features/dashboard/DashBoard'
-
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <LoginPage />,
-  },
-  {
-    path: '/dashboard',
-    element: <Dashboard />,
-  }
-
-])
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
-    <>
-      <RouterProvider router={router} />
-    </>
+    <Router>
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } 
+          />
+      </Routes>
+    </Router>
   )
 }
 
-export default App
+export default App;
