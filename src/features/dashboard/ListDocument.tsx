@@ -13,6 +13,30 @@ interface Document {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+async function handleDelete(document_id: string, setDocuments: React.Dispatch<React.SetStateAction<Document[]>>) {
+
+    try{
+        const token = localStorage.getItem("token");
+    if (!token) {
+        log.error("No auth token found");
+        return;
+    }
+
+    const response = await axios.delete(`${API_BASE_URL}/api/v1/endpoints/documents/${document_id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+    );
+    setDocuments(prev => prev.filter(doc => doc.id !== document_id));
+    log.info(response.data);
+    }catch(err){
+        log.error("Error deleting document:", err);
+    }
+    
+}
+
 function ListDocument(){
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -64,14 +88,13 @@ function ListDocument(){
 
     return (
         <>
-            <h2>Your Documents</h2>
             <ul>
                 {documents.map( doc => (
                     <li key={doc.id}>
                         <img src="/src/assets/icons/gray-file-icon.png"/>
                         <strong>{doc.filename}</strong> 
                         {/* <em>({new Date(doc.created_at).toLocaleString()})</em> */}
-                        <button>
+                        <button onClick={() => handleDelete(doc.id, setDocuments)}>
                             Delete
                         </button>
                     </li>

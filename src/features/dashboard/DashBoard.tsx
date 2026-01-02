@@ -63,7 +63,7 @@ async function handleSubmit(event : React.FormEvent<HTMLFormElement>){
     try{
       const token = localStorage.getItem("token");
       if (!token) {
-        console.error("No auth token found");
+        log.error("No auth token found");
         return;
       }
 
@@ -106,7 +106,7 @@ function Dashboard(){
 
   return (
     <>
-      <h1>This is the dashboard page</h1>
+      <h1>My Documents</h1>
 
       <form onSubmit={handleSubmit}>
         <input type="file" name="fileInput"/>
