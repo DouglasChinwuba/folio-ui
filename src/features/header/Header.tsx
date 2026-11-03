@@ -1,18 +1,24 @@
+
 import './Header.css';
-import {signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { useState } from 'react';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import log from 'loglevel';
 import axios from 'axios';
 
+log.setLevel('info');
 
-log.setLevel("info");
-
-function Header(){
+function Header() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const signInWithGoogle = async () => {
-    try{
+    try {
+      setLoading(true);
+      setError('');
+
       const googleProvider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
@@ -20,33 +26,42 @@ function Header(){
       // Get the Firebase ID token
       const idToken = await user.getIdToken();
 
-      log.info('Google user:', user);
-      log.info('ID token:', idToken);
-
       // Send token to your FastAPI backend
-      const response = await axios.post('http://127.0.0.1:8000/api/v1/endpoints/auth/google', {
-        id_token: idToken
-      });
+      const response = await axios.post(
+        'http://127.0.0.1:8001/api/v1/endpoints/auth/google',
+        {
+          id_token: idToken,
+        }
+      );
 
-      log.info('Backend response:', response.data);
-
+      // Store authentication information
       localStorage.setItem('token', idToken);
       localStorage.setItem('user', JSON.stringify(response.data));
 
-      log.info('Google user:', user);
+      log.info('Google sign-in successful');
       navigate('/dashboard');
-    }catch(error){
-      log.error("Error occurred: ", error);
-    }
-  }
 
-  return(
-    <header>
-      <button className='sign-in-button' onClick={signInWithGoogle}>
-        Sign in with Google
+    } catch (error) {
+      log.error('Error signing in:', error);
+      setError('Unable to sign in. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <header className="login-header">
+      <button
+        className="sign-in-button"
+        onClick={signInWithGoogle}
+        disabled={loading}
+      >
+        {loading ? 'Signing in...' : 'Continue with Google'}
       </button>
+
+      {error && <p className="sign-in-error">{error}</p>}
     </header>
-  )
+  );
 }
 
 export default Header;

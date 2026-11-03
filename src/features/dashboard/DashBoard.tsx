@@ -1,127 +1,186 @@
-import axios from 'axios'
-import log from 'loglevel'
+
+import { useState } from 'react';
+import axios from 'axios';
+import log from 'loglevel';
 import { signOut } from 'firebase/auth';
-import { auth } from '../lib/firebase'
+import { auth } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
-import ListDocument from './ListDocument.tsx'
+import ListDocument from './ListDocument';
+import './Dashboard.css';
 
-// After upload is clicked
-// gets presigned url with object_name and type
-// used presigned url to upload to s3 bucket
-
-log.setLevel("info");
+log.setLevel('info');
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-async function uploadFile(getPresignedUrlresponse : any , file : File){
-  try{
-    log.info(`Uploading file: ${file.name}`)
-    const s3Response = await axios.put(getPresignedUrlresponse.presigned_url, file, {
-      headers: {
-        'Content-Type': file.type,
-      },
-    })
+interface PresignedUrlResponse {
+  presigned_url: string;
+  s3_key: string;
+}
 
-    log.info("Successfully uploaded document")
-    log.info(s3Response)
+async function uploadFile(
+  presignedResponse: PresignedUrlResponse,
+  file: File
+): Promise<void> {
+  // Upload file directly to S3
+  await axios.put(presignedResponse.presigned_url, file, {
+    headers: {
+      'Content-Type': file.type,
+    },
+  });
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      throw new Error("No auth token found");
-    }
+  // Save document metadata through FastAPI
+  const token = localStorage.getItem('token');
 
-    const documentDbResponse = await axios.post(`${API_BASE_URL}/api/v1/endpoints/documents`, {
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  await axios.post(
+    `${API_BASE_URL}/api/v1/endpoints/documents`,
+    {
       filename: file.name,
-      s3_key: getPresignedUrlresponse.s3_key,
+      s3_key: presignedResponse.s3_key,
       content_type: file.type,
-    },{
+    },
+    {
       headers: {
         Authorization: `Bearer ${token}`,
       },
-    });
-
-    log.info(`Successfully loaded document:`, documentDbResponse);
-    
-  }catch(error){
-    log.error("Error occurred: ", error)
-  }
+    }
+  );
 }
 
+function Dashboard() {
+  const navigate = useNavigate();
 
-async function handleSubmit(event : React.FormEvent<HTMLFormElement>){
-  event.preventDefault();
-  
-  const form = event.target as HTMLFormElement;
-  const fileInput = form.elements.namedItem("fileInput") as HTMLInputElement;
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [listKey, setListKey] = useState(0);
 
+  const handleSubmit = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
 
-  if (fileInput && fileInput.files && fileInput.files.length > 0) {
-    const file = fileInput.files[0];
-    const filename = file.name;
-    const fileType = file.type;
+    const form = event.currentTarget;
+    const fileInput = form.elements.namedItem(
+      'fileInput'
+    ) as HTMLInputElement;
 
-    try{
-      const token = localStorage.getItem("token");
+    const file = fileInput.files?.[0];
+
+    if (!file) {
+      setError('Please select a document to upload.');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setMessage('');
+      setError('');
+
+      const token = localStorage.getItem('token');
+
       if (!token) {
-        log.error("No auth token found");
-        return;
+        throw new Error('No authentication token found');
       }
 
-      log.info(`Fetching presigned URL`);
-      const getPresignedUrlresponse = await axios.get(`${API_BASE_URL}/api/v1/endpoints/generate_presigned_url`,
+      // Request S3 presigned URL
+      const response = await axios.get<PresignedUrlResponse>(
+        `${API_BASE_URL}/api/v1/endpoints/generate_presigned_url`,
         {
           params: {
-            filename: filename,
+            filename: file.name,
             expiration: 100,
-            content_type: fileType,
+            content_type: file.type,
           },
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }
       );
-      log.info(`Presigned URL received successfully for file: ${filename}`);
-      await uploadFile(getPresignedUrlresponse.data, file);
-      
-    }catch(error){
-      log.error("Error occurred: ", error)
+
+      // Upload file and save metadata
+      await uploadFile(response.data, file);
+
+      setMessage('Document uploaded successfully.');
+      setListKey((previousKey) => previousKey + 1);
+
+      // Clear selected file
+      form.reset();
+
+    } catch (err) {
+      log.error('Error uploading document:', err);
+      setError('Unable to upload document. Please try again.');
+    } finally {
+      setUploading(false);
     }
-  }
-}
+  };
 
-
-function Dashboard(){
-
-  const navigate = useNavigate();
-
-  const handleLogout = async() => {
-    try{
+  const handleLogout = async () => {
+    try {
       await signOut(auth);
-      localStorage.removeItem('user');  
-      navigate("/");
-    }catch(error){
-      log.error("Error signing out:", error);
+
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+
+      navigate('/');
+    } catch (err) {
+      log.error('Error signing out:', err);
+      setError('Unable to log out. Please try again.');
     }
-  }
+  };
 
   return (
-    <>
-      <h1>My Documents</h1>
+    <main className="dashboard-page">
+      <header className="dashboard-header">
+        <h1>Folio</h1>
 
-      <form onSubmit={handleSubmit}>
-        <input type="file" name="fileInput"/>
-        <button type="submit">Upload</button>
-      </form>
+        <button
+          className="logout-button"
+          onClick={handleLogout}
+        >
+          Logout
+        </button>
+      </header>
 
-      <>
-        <ListDocument />
-      </>
+      <div className="dashboard-container">
+        <section className="dashboard-intro">
+          <h2>My Documents</h2>
+          <p>Manage and share your documents in one place.</p>
+        </section>
 
-      <button onClick={handleLogout}>
-        Logout
-      </button>
-    </>
-  )
+        <section className="upload-section">
+          <h3>Upload a document</h3>
+
+          <form onSubmit={handleSubmit}>
+            <input
+              type="file"
+              name="fileInput"
+              disabled={uploading}
+            />
+
+            <button type="submit" disabled={uploading}>
+              {uploading ? 'Uploading...' : 'Upload'}
+            </button>
+          </form>
+
+          {message && (
+            <p className="upload-success">{message}</p>
+          )}
+
+          {error && (
+            <p className="upload-error">{error}</p>
+          )}
+        </section>
+
+        <section className="documents-section">
+          <ListDocument key={listKey} />
+        </section>
+      </div>
+    </main>
+  );
 }
 
 export default Dashboard;

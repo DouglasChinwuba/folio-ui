@@ -1,107 +1,223 @@
-import axios from 'axios'
-import { useEffect, useState } from "react";
-import log from "loglevel";
 
-log.setLevel("info");
+import axios from 'axios';
+import { useEffect, useState } from 'react';
+import log from 'loglevel';
+import ShareModal from './ShareModal';
+import './ListDocument.css';
+
+log.setLevel('info');
 
 interface Document {
-    id: string;
-    filename: string;
-    created_at: string;
-    s3_key: string;
-  }
+  id: string;
+  filename: string;
+  created_at: string;
+  s3_key: string;
+}
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-async function handleDelete(document_id: string, setDocuments: React.Dispatch<React.SetStateAction<Document[]>>) {
+function ListDocument() {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [sharedDocuments, setSharedDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
-    try{
-        const token = localStorage.getItem("token");
-    if (!token) {
-        log.error("No auth token found");
-        return;
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const openShareModal = (documentId: string) => {
+    setSelectedDocId(documentId);
+    setIsShareOpen(true);
+  };
+
+  const closeShareModal = () => {
+    setIsShareOpen(false);
+    setSelectedDocId(null);
+  };
+
+  const fetchDocuments = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        throw new Error('User not authenticated');
+      }
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+      };
+
+      const [ownedResponse, sharedResponse] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/v1/endpoints/get_documents`, {
+          headers,
+        }),
+        axios.get(`${API_BASE_URL}/api/v1/endpoints/shared_documents`, {
+          headers,
+        }),
+      ]);
+
+      setDocuments(ownedResponse.data);
+      setSharedDocuments(sharedResponse.data);
+    } catch (err) {
+      log.error('Error fetching documents:', err);
+      setError('Unable to load documents. Please try again.');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const response = await axios.delete(`${API_BASE_URL}/api/v1/endpoints/documents/${document_id}`,
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  const handleDelete = async (documentId: string) => {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this document?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(documentId);
+      setMessage('');
+      setError('');
+
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      await axios.delete(
+        `${API_BASE_URL}/api/v1/endpoints/documents/${documentId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }
-    );
-    setDocuments(prev => prev.filter(doc => doc.id !== document_id));
-    log.info(response.data);
-    }catch(err){
-        log.error("Error deleting document:", err);
+      );
+
+      setDocuments((previous) =>
+        previous.filter((doc) => doc.id !== documentId)
+      );
+
+      setMessage('Document deleted successfully.');
+    } catch (err) {
+      log.error('Error deleting document:', err);
+      setError('Unable to delete document. Please try again.');
+    } finally {
+      setDeletingId(null);
     }
-    
-}
+  };
 
-function ListDocument(){
-    const [documents, setDocuments] = useState<Document[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState<string | null>(null);
+  if (loading) {
+    return <p className="document-status">Loading documents...</p>;
+  }
 
+  return (
+    <div className="document-list">
 
-    const userString = localStorage.getItem('user');
+      {error && <p className="document-error">{error}</p>}
+      {message && <p className="document-success">{message}</p>}
 
-    if(userString){
-        const user = JSON.parse(userString); 
-        user.user_id
-    }
-    
-    useEffect(() => {
-        const fetchDocuments = async () => {
-            try{
-                const token = localStorage.getItem("token");
-                if (!token) {
-                    setError("User not authenticated");
-                    setLoading(false);
-                    return;
-                }
+      <section>
+        <h3>My Documents</h3>
 
-                const response = await axios.get(
-                    `${API_BASE_URL}/api/v1/endpoints/get_documents`,
-                    {
-                      headers: {
-                        Authorization: `Bearer ${token}`,
-                      },
-                    }
-                );
+        {documents.length === 0 ? (
+          <p className="document-empty">
+            You haven't uploaded any documents yet.
+          </p>
+        ) : (
+          <ul className="document-items">
+            {documents.map((doc) => (
+              <li key={doc.id} className="document-item">
+                <div className="document-info">
+                  <div className="document-icon">
+                    <img
+                      src="/src/assets/icons/gray-file-icon.png"
+                      alt=""
+                    />
+                  </div>
 
-                setDocuments(response.data);
-            }catch(err: any){
-                log.error("Error fetching documents:", err);
-                setError("Failed to fetch documents");
-            }finally{
-                setLoading(false);
-            }
-        };
+                  <div className="document-details">
+                    <strong>{doc.filename}</strong>
+                    <span>
+                      Uploaded{' '}
+                      {new Date(doc.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
 
-        fetchDocuments();
+                <div className="document-actions">
+                  <button
+                    className="share-button"
+                    onClick={() => openShareModal(doc.id)}
+                    aria-label={`Share ${doc.filename}`}
+                  >
+                    Share
+                  </button>
 
-    }, []);
-    
-    if (loading) return <p>Loading documents...</p>;
-    if (error) return <p>{error}</p>;
-    if (documents.length === 0) return <p>No documents found.</p>;
+                  <button
+                    className="delete-button"
+                    onClick={() => handleDelete(doc.id)}
+                    disabled={deletingId === doc.id}
+                    aria-label={`Delete ${doc.filename}`}
+                  >
+                    {deletingId === doc.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-    return (
-        <>
-            <ul>
-                {documents.map( doc => (
-                    <li key={doc.id}>
-                        <img src="/src/assets/icons/gray-file-icon.png"/>
-                        <strong>{doc.filename}</strong> 
-                        {/* <em>({new Date(doc.created_at).toLocaleString()})</em> */}
-                        <button onClick={() => handleDelete(doc.id, setDocuments)}>
-                            Delete
-                        </button>
-                    </li>
-                ))}
-            </ul>
-        </>
-    )
+      <section className="shared-documents">
+        <h3>Shared With Me</h3>
+
+        {sharedDocuments.length === 0 ? (
+          <p className="document-empty">
+            No documents have been shared with you yet.
+          </p>
+        ) : (
+          <ul className="document-items">
+            {sharedDocuments.map((doc) => (
+              <li key={doc.id} className="document-item">
+                <div className="document-info">
+                  <div className="document-icon">
+                    <img
+                      src="/src/assets/icons/gray-file-icon.png"
+                      alt=""
+                    />
+                  </div>
+
+                  <div className="document-details">
+                    <strong>{doc.filename}</strong>
+                    <span>
+                      Shared document
+                    </span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {isShareOpen && selectedDocId && (
+        <ShareModal
+          document_id={selectedDocId}
+          onClose={closeShareModal}
+        />
+      )}
+    </div>
+  );
 }
 
 export default ListDocument;

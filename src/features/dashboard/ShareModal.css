@@ -1,0 +1,106 @@
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    background-color: rgba(15, 23, 42, 0.45);
+  }
+  
+  .share-modal {
+    width: 100%;
+    max-width: 420px;
+    padding: 24px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  
+  .modal-header h3 {
+    margin: 0;
+    color: #1e293b;
+    font-size: 19px;
+  }
+  
+  .modal-close {
+    border: none;
+    background: none;
+    color: #64748b;
+    font-size: 26px;
+    cursor: pointer;
+  }
+  
+  .share-modal label {
+    display: block;
+    margin-bottom: 8px;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  
+  .share-modal input {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    outline: none;
+    font-size: 14px;
+  }
+  
+  .share-modal input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+  
+  .share-error {
+    margin: 10px 0 0;
+    color: #dc2626;
+    font-size: 13px;
+  }
+  
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+  }
+  
+  .modal-actions button {
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  
+  .cancel-button {
+    background-color: #ffffff;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+  }
+  
+  .confirm-share-button {
+    background-color: #2563eb;
+    color: #ffffff;
+    border: 1px solid #2563eb;
+  }
+  
+  .confirm-share-button:hover:not(:disabled) {
+    background-color: #1d4ed8;
+  }
+  
+  .modal-actions button:disabled,
+  .modal-close:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
