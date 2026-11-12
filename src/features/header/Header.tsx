@@ -9,6 +9,8 @@ import axios from 'axios';
 
 log.setLevel('info');
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 function Header() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -28,7 +30,7 @@ function Header() {
 
       // Send token to your FastAPI backend
       const response = await axios.post(
-        'http://127.0.0.1:8001/api/v1/endpoints/auth/google',
+        `${API_BASE_URL}/api/v1/endpoints/auth/google`,
         {
           id_token: idToken,
         }

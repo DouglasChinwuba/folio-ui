@@ -116,6 +116,38 @@ function ListDocument() {
     }
   };
 
+  const handleDownload = async (documentId: String) => {
+	try {
+	  const token = localStorage.getItem('token');
+  
+	  if (!token) {
+		throw new Error('No authentication token found');
+	  }
+  
+	  const response = await axios.get(
+		`${API_BASE_URL}/api/v1/endpoints/documents/${documentId}/download`,
+		{
+		  headers: {
+			Authorization: `Bearer ${token}`,
+		  },
+		}
+	  );
+  
+	  const downloadUrl = response.data.download_url;
+  
+	  const link = document.createElement('a');
+	  link.href = downloadUrl;
+	  link.download = '';
+	  document.body.appendChild(link);
+	  link.click();
+	  document.body.removeChild(link);
+  
+	} catch (error) {
+	  log.error('Error downloading document:', error);
+	  setError('Unable to download document. Please try again.');
+	}
+  };
+
   if (loading) {
     return <p className="document-status">Loading documents...</p>;
   }
@@ -155,6 +187,13 @@ function ListDocument() {
                 </div>
 
                 <div className="document-actions">
+				  <button
+					className="share-button"
+					onClick={() => handleDownload(doc.id)}
+				  >
+					Download
+				  </button>
+
                   <button
                     className="share-button"
                     onClick={() => openShareModal(doc.id)}
